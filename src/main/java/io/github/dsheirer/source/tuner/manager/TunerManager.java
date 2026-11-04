@@ -20,6 +20,7 @@
 package io.github.dsheirer.source.tuner.manager;
 
 import io.github.dsheirer.gui.preference.tuner.RspDuoSelectionMode;
+import io.github.dsheirer.module.decode.SimulatedNoise;
 import io.github.dsheirer.preference.UserPreferences;
 import io.github.dsheirer.preference.source.ChannelizerType;
 import io.github.dsheirer.source.Source;
@@ -182,6 +183,8 @@ public class TunerManager implements IDiscoveredTunerStatusListener
         mTunerPlanner.start();
         mDecodeQualityReporter.start();
         mIfFilterFuture = ThreadPool.SCHEDULED.scheduleAtFixedRate(this::updateIfFilters, 10, 10, TimeUnit.SECONDS);
+        SimulatedNoise.start(mUserPreferences.getDirectoryPreference().getDirectoryConfiguration()
+            .resolve("simulated_noise.request"));
     }
 
     /**
@@ -211,6 +214,7 @@ public class TunerManager implements IDiscoveredTunerStatusListener
      */
     public void stop()
     {
+        SimulatedNoise.stop();
         mDecodeQualityReporter.stop();
 
         if(mIfFilterFuture != null)
@@ -866,8 +870,20 @@ public class TunerManager implements IDiscoveredTunerStatusListener
     {
         try
         {
-            return discoveredTuner.getTuner().getChannelSourceManager().getSource(tunerChannel, channelSpecification,
-                threadName);
+            long center = discoveredTuner.getTuner().getTunerController().getFrequency();
+            Source source = discoveredTuner.getTuner().getChannelSourceManager().getSource(tunerChannel,
+                channelSpecification, threadName);
+
+            if(threadName != null && threadName.contains("/P25-2]"))
+            {
+                mLog.info("Phase 2 traffic channel [" + tunerChannel.getFrequency() + "] " +
+                    (source != null ? "sourced from" : "refused by") + " tuner [" +
+                    discoveredTuner.getTuner().getPreferredName() + "] centered at " + center + " now " +
+                    discoveredTuner.getTuner().getTunerController().getFrequency() + " carrying " +
+                    discoveredTuner.getTuner().getChannelSourceManager().getTunerChannelCount() + " channels");
+            }
+
+            return source;
         }
         catch(Exception e)
         {

@@ -39,6 +39,10 @@ import io.github.dsheirer.module.ProcessingChain;
 import io.github.dsheirer.channel.metadata.SignalLevelMonitor;
 import io.github.dsheirer.module.decode.DecodeQuality;
 import io.github.dsheirer.module.decode.DecoderFactory;
+import io.github.dsheirer.module.decode.DecoderType;
+import io.github.dsheirer.module.decode.SimulatedNoise;
+import io.github.dsheirer.module.decode.p25.phase2.DecodeConfigP25Phase2;
+import io.github.dsheirer.module.decode.p25.phase2.P25P2TrafficDiagnostics;
 import io.github.dsheirer.module.decode.event.IDecodeEvent;
 import io.github.dsheirer.module.log.EventLogManager;
 import io.github.dsheirer.preference.UserPreferences;
@@ -406,6 +410,48 @@ public class ChannelProcessingManager implements Listener<ChannelEvent>
         return channel.getSystem() + " | " + channel.getSite() + " | " + name;
     }
 
+    private static boolean isPhase2Traffic(Channel channel)
+    {
+        return channel.isTrafficChannel() && channel.getDecodeConfiguration() != null &&
+            channel.getDecodeConfiguration().getDecoderType() == DecoderType.P25_PHASE2;
+    }
+
+    private static String describePhase2Traffic(Channel channel, ChannelStartProcessingRequest request, Source source)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[").append(channel.getName()).append("]");
+
+        if(channel.getSourceConfiguration() instanceof SourceConfigTuner config)
+        {
+            sb.append(" ").append(config.getFrequency());
+        }
+
+        if(request.hasChannelDescriptor())
+        {
+            sb.append(" channel ").append(request.getChannelDescriptor());
+        }
+
+        if(request.hasIdentifierCollection())
+        {
+            sb.append(" timeslot ").append(request.getIdentifierCollection().getTimeslot());
+            sb.append(" to ").append(request.getIdentifierCollection().getToIdentifier());
+            sb.append(" scramble identifiers ")
+                .append(request.getIdentifierCollection().getIdentifiers(Form.SCRAMBLE_PARAMETERS).size());
+        }
+
+        if(channel.getDecodeConfiguration() instanceof DecodeConfigP25Phase2 p2)
+        {
+            sb.append(" scramble config ").append(p2.getScrambleParameters());
+        }
+
+        if(source instanceof TunerChannelSource tunerChannelSource)
+        {
+            sb.append(" source ").append(tunerChannelSource.getTunerChannel());
+        }
+
+        return sb.toString();
+    }
+
     private synchronized void startProcessing(ChannelStartProcessingRequest request) throws ChannelException
     {
         Channel channel = request.getChannel();
@@ -433,6 +479,12 @@ public class ChannelProcessingManager implements Listener<ChannelEvent>
 
         if(source == null)
         {
+            if(isPhase2Traffic(channel))
+            {
+                mLog.info("Phase 2 traffic channel start rejected - no tuner: " +
+                    describePhase2Traffic(channel, request, null));
+            }
+
             //This has to be done on the FX event thread when the playlist editor is constructed
             if(!GraphicsEnvironment.isHeadless())
             {
@@ -496,6 +548,15 @@ public class ChannelProcessingManager implements Listener<ChannelEvent>
         if(owner != null)
         {
             processingChain.addModule(DecodeQuality.monitor(owner));
+            processingChain.setSampleTransform(SimulatedNoise.transform(owner));
+        }
+
+        P25P2TrafficDiagnostics diagnostics = isPhase2Traffic(channel) ?
+            new P25P2TrafficDiagnostics(describePhase2Traffic(channel, request, source)) : null;
+
+        if(diagnostics != null)
+        {
+            processingChain.addModule(diagnostics);
         }
 
         processingChain.addModule(new SignalLevelMonitor(level -> {
@@ -507,6 +568,11 @@ public class ChannelProcessingManager implements Listener<ChannelEvent>
             if(owner != null)
             {
                 DecodeQuality.setSignalLevel(owner, level);
+            }
+
+            if(diagnostics != null)
+            {
+                diagnostics.setSignalLevel(level);
             }
         }));
 

@@ -80,6 +80,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.UnaryOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,6 +108,7 @@ public class ProcessingChain implements Listener<ChannelEvent>
 
     private Broadcaster<float[]> mDemodulatedAudioBufferBroadcaster = new Broadcaster();
     private Broadcaster<ComplexSamples> mBasebandComplexSamplesBroadcaster = new Broadcaster<>();
+    private UnaryOperator<ComplexSamples> mSampleTransform;
     private Broadcaster<ByteBuffer> mDemodulatedBitstreamBufferBroadcaster = new Broadcaster();
     private Broadcaster<AudioSegment> mAudioSegmentBroadcaster = new AudioSegmentBroadcaster<>();
     private Broadcaster<IDecodeEvent> mDecodeEventBroadcaster = new Broadcaster<>();
@@ -283,6 +285,15 @@ public class ProcessingChain implements Listener<ChannelEvent>
     public boolean hasSource(Source source)
     {
         return mSource != null && mSource.equals(source);
+    }
+
+    /**
+     * Sets a transform applied to complex samples from the source before any module sees them.  Takes effect the
+     * next time processing starts.
+     */
+    public void setSampleTransform(UnaryOperator<ComplexSamples> transform)
+    {
+        mSampleTransform = transform;
     }
 
     /**
@@ -722,7 +733,9 @@ public class ProcessingChain implements Listener<ChannelEvent>
                 switch(mSource.getSampleType())
                 {
                     case COMPLEX:
-                        ((ComplexSource)mSource).setListener(mBasebandComplexSamplesBroadcaster);
+                        UnaryOperator<ComplexSamples> transform = mSampleTransform;
+                        ((ComplexSource)mSource).setListener(transform == null ? mBasebandComplexSamplesBroadcaster :
+                            samples -> mBasebandComplexSamplesBroadcaster.receive(transform.apply(samples)));
                         break;
                     case REAL:
                         ((RealSource)mSource).setListener(mDemodulatedAudioBufferBroadcaster);

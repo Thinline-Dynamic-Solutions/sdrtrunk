@@ -95,6 +95,7 @@ public class AudioStreamingManager implements Listener<AudioSegment>
         {
             mLog.error("Error announcing core call start", t);
         }
+        logTimeslotSegment("arrived", audioSegment);
         mNewAudioSegments.add(audioSegment);
     }
 
@@ -152,6 +153,7 @@ public class AudioStreamingManager implements Listener<AudioSegment>
 
             if(audioSegment.isDuplicate() && mUserPreferences.getCallManagementPreference().isDuplicateStreamingSuppressionEnabled())
             {
+                logTimeslotSegment("dropped as duplicate", audioSegment);
                 it.remove();
                 announceCoreDrop(audioSegment);
                 audioSegment.decrementConsumerCount();
@@ -159,6 +161,8 @@ public class AudioStreamingManager implements Listener<AudioSegment>
             else if(audioSegment.completeProperty().get())
             {
                 it.remove();
+                logTimeslotSegment(mAudioRecordingListener != null && audioSegment.hasBroadcastChannels() ?
+                    "streaming" : "not streamed - no stream", audioSegment);
 
                 if(mAudioRecordingListener != null && audioSegment.hasBroadcastChannels())
                 {
@@ -228,6 +232,19 @@ public class AudioStreamingManager implements Listener<AudioSegment>
                 }
                 audioSegment.decrementConsumerCount();
             }
+        }
+    }
+
+    private void logTimeslotSegment(String outcome, AudioSegment audioSegment)
+    {
+        if(audioSegment.getTimeslot() > 0)
+        {
+            mLog.info("Timeslot audio segment " + outcome + ": list [" +
+                (audioSegment.getAliasList() != null ? audioSegment.getAliasList().getName() : null) + "] TS" +
+                audioSegment.getTimeslot() + " to " + audioSegment.getIdentifierCollection().getToIdentifier() +
+                " duration " + audioSegment.getDuration() + " ms, buffers " + audioSegment.getAudioBufferCount() +
+                ", voice frames " + audioSegment.getVoiceFrameCount() + ", encrypted " + audioSegment.isEncrypted() +
+                ", duplicate " + audioSegment.isDuplicate() + ", streams " + audioSegment.getBroadcastChannels());
         }
     }
 
