@@ -43,6 +43,7 @@ import io.github.dsheirer.gui.theme.ThemedFontIcon;
 import io.github.dsheirer.gui.viewer.ViewRecordingViewerRequest;
 import io.github.dsheirer.icon.IconModel;
 import io.github.dsheirer.log.ApplicationLog;
+import io.github.dsheirer.log.ThinlineRadioLog;
 import io.github.dsheirer.map.MapService;
 import io.github.dsheirer.module.log.EventLogManager;
 import io.github.dsheirer.monitor.DiagnosticMonitor;
@@ -137,6 +138,7 @@ public class SDRTrunk implements Listener<TunerEvent>
     private UserPreferences mUserPreferences = new UserPreferences();
     private TunerManager mTunerManager;
     private ApplicationLog mApplicationLog;
+    private ThinlineRadioLog mThinlineRadioLog;
     private ResourceMonitor mResourceMonitor;
     private JFXPanel mResourceStatusPanel;
 
@@ -154,6 +156,8 @@ public class SDRTrunk implements Listener<TunerEvent>
 
         mApplicationLog = new ApplicationLog(mUserPreferences);
         mApplicationLog.start();
+        mThinlineRadioLog = new ThinlineRadioLog(mUserPreferences);
+        mThinlineRadioLog.start();
 
         mResourceMonitor = new ResourceMonitor(mUserPreferences);
 
@@ -645,6 +649,10 @@ public class SDRTrunk implements Listener<TunerEvent>
         mLog.info("Stopping tuners ...");
         mTunerManager.stop();
         mLog.info("Shutdown complete.");
+        if(mThinlineRadioLog != null)
+        {
+            mThinlineRadioLog.stop();
+        }
         mApplicationLog.stop();
     }
 

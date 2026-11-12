@@ -137,6 +137,7 @@ public class ThinlineRadioCoreBroadcaster extends AbstractAudioBroadcaster<Thinl
         }
         if(siteKey().isBlank())
         {
+            mLog.warn("Thinline Radio Core [{}] missing site key", getBroadcastConfiguration().getName());
             mRunning.set(false);
             setBroadcastState(BroadcastState.CONFIGURATION_ERROR);
             return;
@@ -144,6 +145,8 @@ public class ThinlineRadioCoreBroadcaster extends AbstractAudioBroadcaster<Thinl
         mRunning.set(true);
         LIVE.add(this);
         setBroadcastState(BroadcastState.CONNECTING);
+        mLog.info("Thinline Radio Core [{}] starting system={}", getBroadcastConfiguration().getName(),
+            getBroadcastConfiguration().getSystemID());
         connect();
     }
 
@@ -159,6 +162,8 @@ public class ThinlineRadioCoreBroadcaster extends AbstractAudioBroadcaster<Thinl
         // Uploading here used to run on the window thread. Switching the stream calls stop() from
         // that thread, and each held file is a blocking HTTP post, so the window froze and died.
         List<String> pending = List.copyOf(mHeld.keySet());
+        mLog.info("Thinline Radio Core [{}] stopping held={} inProgress={}", getBroadcastConfiguration().getName(),
+            pending.size(), mStarted.size());
         for(String recordingId: List.copyOf(mStarted.values()))
         {
             sendCancelled(recordingId);
@@ -225,6 +230,8 @@ public class ThinlineRadioCoreBroadcaster extends AbstractAudioBroadcaster<Thinl
             return;
         }
         BY_RECORDING.remove(recordingId);
+        mLog.info("Thinline Radio Core [{}] call cancelled recordingId={} tg={}",
+            getBroadcastConfiguration().getName(), recordingId, talkgroup(segment.getIdentifierCollection()));
         sendCancelled(recordingId);
     }
 
@@ -253,9 +260,15 @@ public class ThinlineRadioCoreBroadcaster extends AbstractAudioBroadcaster<Thinl
 
         if(!mEndpoint.isReady())
         {
+            mLog.warn("Thinline Radio Core [{}] holding call offline recordingId={} tg={} radio={} durationMs={}",
+                getBroadcastConfiguration().getName(), recordingId, talkgroup, radioId,
+                audioRecording.getRecordingLength());
             return;
         }
 
+        mLog.info("Thinline Radio Core [{}] call ready recordingId={} tg={} radio={} durationMs={} quality={}",
+            getBroadcastConfiguration().getName(), recordingId, talkgroup, radioId,
+            audioRecording.getRecordingLength(), held.quality);
         mEndpoint.send(readyReport(recordingId, held));
     }
 
@@ -300,6 +313,9 @@ public class ThinlineRadioCoreBroadcaster extends AbstractAudioBroadcaster<Thinl
             return;
         }
         setBroadcastState(BroadcastState.CONNECTED);
+        mLog.info("Thinline Radio Core [{}] connected system={} held={} inProgress={}",
+            getBroadcastConfiguration().getName(), getBroadcastConfiguration().getSystemID(),
+            mHeld.size(), mStarted.size());
         ObjectNode hello = MAPPER.createObjectNode();
         hello.put("type", "core.hello");
         hello.put("system", getBroadcastConfiguration().getSystemID());
@@ -381,19 +397,32 @@ public class ThinlineRadioCoreBroadcaster extends AbstractAudioBroadcaster<Thinl
             ok = mHeld.containsKey(recordingId);
             if(ok)
             {
+                mLog.info("Thinline Radio Core [{}] upload requested recordingId={}",
+                    getBroadcastConfiguration().getName(), recordingId);
                 ThreadPool.CACHED.submit(() -> upload(recordingId));
             }
             else
             {
                 error = "Recording is not held";
+                mLog.warn("Thinline Radio Core [{}] upload requested but not held recordingId={}",
+                    getBroadcastConfiguration().getName(), recordingId);
             }
         }
         else if("discardCall".equals(name))
         {
+            Held discarded = mHeld.get(recordingId);
             ok = discard(recordingId);
-            if(!ok)
+            if(ok)
+            {
+                mLog.info("Thinline Radio Core [{}] discard recordingId={} tg={}",
+                    getBroadcastConfiguration().getName(), recordingId,
+                    discarded == null ? "?" : discarded.talkgroup);
+            }
+            else
             {
                 error = "Recording is not held";
+                mLog.warn("Thinline Radio Core [{}] discard requested but not held recordingId={}",
+                    getBroadcastConfiguration().getName(), recordingId);
             }
         }
         else
@@ -440,7 +469,8 @@ public class ThinlineRadioCoreBroadcaster extends AbstractAudioBroadcaster<Thinl
         }
         catch(Exception e)
         {
-            mLog.warn("Thinline Radio Core upload failed: {}", e.toString());
+            mLog.warn("Thinline Radio Core [{}] upload failed reading file recordingId={} tg={}: {}",
+                getBroadcastConfiguration().getName(), recordingId, held.talkgroup, e.toString());
         }
 
         for(int attempt = 1; audio != null && attempt <= UPLOAD_ATTEMPTS; attempt++)
@@ -457,11 +487,16 @@ public class ThinlineRadioCoreBroadcaster extends AbstractAudioBroadcaster<Thinl
                 {
                     incrementStreamedAudioCount();
                     broadcast(new BroadcastEvent(this, BroadcastEvent.Event.BROADCASTER_STREAMED_COUNT_CHANGE));
+                    mLog.info("Thinline Radio Core [{}] upload ok recordingId={} tg={} radio={} bytes={}",
+                        getBroadcastConfiguration().getName(), recordingId, held.talkgroup, held.radioId,
+                        audio.length);
                     finish(recordingId, held);
                     return;
                 }
 
-                mLog.warn("Thinline Radio Core upload failed [{}] {}", response.statusCode(), response.body());
+                mLog.warn("Thinline Radio Core [{}] upload failed recordingId={} tg={} status={} body={}",
+                    getBroadcastConfiguration().getName(), recordingId, held.talkgroup, response.statusCode(),
+                    response.body());
                 if(response.statusCode() < 500)
                 {
                     break;
@@ -470,11 +505,14 @@ public class ThinlineRadioCoreBroadcaster extends AbstractAudioBroadcaster<Thinl
             catch(InterruptedException e)
             {
                 Thread.currentThread().interrupt();
+                mLog.warn("Thinline Radio Core [{}] upload interrupted recordingId={} tg={}",
+                    getBroadcastConfiguration().getName(), recordingId, held.talkgroup);
                 break;
             }
             catch(Exception e)
             {
-                mLog.warn("Thinline Radio Core upload failed (attempt {} of {}): {}", attempt, UPLOAD_ATTEMPTS,
+                mLog.warn("Thinline Radio Core [{}] upload failed recordingId={} tg={} attempt {}/{}: {}",
+                    getBroadcastConfiguration().getName(), recordingId, held.talkgroup, attempt, UPLOAD_ATTEMPTS,
                     e.toString());
             }
             finally
@@ -489,6 +527,8 @@ public class ThinlineRadioCoreBroadcaster extends AbstractAudioBroadcaster<Thinl
         incrementErrorAudioCount();
         broadcast(new BroadcastEvent(this, BroadcastEvent.Event.BROADCASTER_ERROR_COUNT_CHANGE));
         held.stage = Stage.HELD;
+        mLog.warn("Thinline Radio Core [{}] upload gave up recordingId={} tg={} - notifying server",
+            getBroadcastConfiguration().getName(), recordingId, held.talkgroup);
         sendUploadFailed(recordingId);
     }
 

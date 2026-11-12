@@ -476,10 +476,14 @@ public class ThinlineRadioSocket implements WebSocket.Listener
 
     private void disconnected(WebSocket webSocket)
     {
-        mReady.set(false);
+        boolean wasReady = mReady.getAndSet(false);
         if(mWebSocket == webSocket)
         {
             mWebSocket = null;
+        }
+        if(wasReady)
+        {
+            mLog.warn("Thinline Radio websocket disconnected {}", mUrl);
         }
         for(Runnable listener: mClosedListeners)
         {
@@ -496,6 +500,7 @@ public class ThinlineRadioSocket implements WebSocket.Listener
             if("welcome".equals(type))
             {
                 mReady.set(true);
+                mLog.info("Thinline Radio websocket ready {}", mUrl);
                 for(Runnable listener: mReadyListeners)
                 {
                     listener.run();
