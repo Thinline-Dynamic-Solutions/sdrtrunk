@@ -24,6 +24,7 @@ import io.github.dsheirer.audio.broadcast.broadcastify.BroadcastifyCallConfigura
 import io.github.dsheirer.audio.broadcast.broadcastify.BroadcastifyFeedConfiguration;
 import io.github.dsheirer.audio.broadcast.rdioscanner.RdioScannerBroadcaster;
 import io.github.dsheirer.audio.broadcast.rdioscanner.RdioScannerConfiguration;
+import io.github.dsheirer.audio.broadcast.thinline.ThinlineRadioConfiguration;
 import io.github.dsheirer.audio.broadcast.rdioscanner.RdioScannerFeedConfiguration;
 import io.github.dsheirer.audio.broadcast.thinline.ThinlineRadioConfiguration;
 import io.github.dsheirer.audio.broadcast.thinline.ThinlineRadioCoreBroadcaster;

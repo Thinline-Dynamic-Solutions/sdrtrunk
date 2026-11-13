@@ -1,6 +1,6 @@
 /*
  * *****************************************************************************
- * Copyright (C) 2014-2023 Dennis Sheirer
+ * Copyright (C) 2014-2026 Dennis Sheirer
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,37 +17,28 @@
  * ****************************************************************************
  */
 
-package io.github.dsheirer.module.decode.ip.mototrbo.lrrp.token;
+package io.github.dsheirer.gui.spectrum.layer;
 
-import io.github.dsheirer.bits.CorrectedBinaryMessage;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * LRRP Trigger on GPIO Token
- *
- * Total Length: 1 byte
+ * Tests the frequency label spacing.
  */
-public class TriggerGpio extends Token
+public class FrequencyLayerTest
 {
-    /**
-     * Constructs an instance of a heading token.
-     *
-     * @param message containing the heading
-     * @param offset to the start of the token
-     */
-    public TriggerGpio(CorrectedBinaryMessage message, int offset)
+    @Test
+    void niceStepRoundsUpToOneTwoOrFive()
     {
-        super(message, offset);
-    }
-
-    @Override
-    public TokenType getTokenType()
-    {
-        return TokenType.TRIGGER_GPIO;
-    }
-
-    @Override
-    public String toString()
-    {
-        return "TRIGGER ON GPIO";
+        assertEquals(1, FrequencyLayer.niceStep(0.3));
+        assertEquals(1, FrequencyLayer.niceStep(1));
+        assertEquals(2, FrequencyLayer.niceStep(1.5));
+        assertEquals(5, FrequencyLayer.niceStep(3));
+        assertEquals(10, FrequencyLayer.niceStep(7));
+        assertEquals(100_000, FrequencyLayer.niceStep(100_000));
+        assertEquals(200_000, FrequencyLayer.niceStep(120_000));
+        assertEquals(500_000, FrequencyLayer.niceStep(250_001));
+        assertEquals(1_000_000, FrequencyLayer.niceStep(600_000));
     }
 }

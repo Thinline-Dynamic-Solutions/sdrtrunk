@@ -1,6 +1,6 @@
 /*
  * *****************************************************************************
- * Copyright (C) 2014-2023 Dennis Sheirer
+ * Copyright (C) 2014-2026 Dennis Sheirer
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,37 +17,26 @@
  * ****************************************************************************
  */
 
-package io.github.dsheirer.module.decode.ip.mototrbo.lrrp.token;
+package io.github.dsheirer.gui.spectrum.layer;
 
-import io.github.dsheirer.bits.CorrectedBinaryMessage;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * LRRP Trigger on Move Token
- *
- * Total Length: 1 byte
+ * Tests the decibel scale grid step.
  */
-public class TriggerOnMove extends Token
+public class DecibelLayerTest
 {
-    /**
-     * Constructs an instance of a heading token.
-     *
-     * @param message containing the heading
-     * @param offset to the start of the token
-     */
-    public TriggerOnMove(CorrectedBinaryMessage message, int offset)
+    @Test
+    void stepKeepsLinesAtLeast28PixelsApart()
     {
-        super(message, offset);
-    }
-
-    @Override
-    public TokenType getTokenType()
-    {
-        return TokenType.TRIGGER_ON_MOVE;
-    }
-
-    @Override
-    public String toString()
-    {
-        return "TRIGGER ON MOVE";
+        //100 dB over 300 pixels = 3 pixels per dB: 10 dB = 30 pixels
+        assertEquals(10.0, DecibelLayer.getStep(100, 300));
+        //100 dB over 1000 pixels = 10 pixels per dB: 5 dB = 50 pixels
+        assertEquals(5.0, DecibelLayer.getStep(100, 1000));
+        //100 dB over 100 pixels = 1 pixel per dB: 50 dB = 50 pixels
+        assertEquals(50.0, DecibelLayer.getStep(100, 100));
+        assertEquals(50.0, DecibelLayer.getStep(100, 0));
     }
 }
