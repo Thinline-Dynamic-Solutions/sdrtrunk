@@ -92,9 +92,8 @@ public class TunerManager implements IDiscoveredTunerStatusListener
         mUserPreferences = userPreferences;
         mTunerConfigurationManager = new TunerConfigurationManager(userPreferences);
         mDiscoveredTunerModel = new DiscoveredTunerModel(mTunerConfigurationManager);
-        mTunerPlanner = new TunerPlanner(mDiscoveredTunerModel, userPreferences.getDirectoryPreference()
-            .getDirectoryConfiguration().resolve("tuner_traffic_frequencies.json"));
-        mDecodeQualityReporter = new DecodeQualityReporter(mDiscoveredTunerModel);
+        mTunerPlanner = new TunerPlanner(mDiscoveredTunerModel, userPreferences.getDirectoryPreference());
+        mDecodeQualityReporter = new DecodeQualityReporter(mDiscoveredTunerModel, userPreferences.getTunerPreference());
     }
 
     /**

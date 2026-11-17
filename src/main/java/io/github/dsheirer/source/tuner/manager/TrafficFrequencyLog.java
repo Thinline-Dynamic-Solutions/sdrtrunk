@@ -106,7 +106,7 @@ public class TrafficFrequencyLog
         {
             if(!entry.control && owners.contains(entry.owner))
             {
-                learned.add(new TunerPlan.Learned(entry.frequency, entry.bandwidth, entry.count, false));
+                learned.add(new TunerPlan.Learned(entry.frequency, entry.bandwidth, entry.count));
             }
         }
 

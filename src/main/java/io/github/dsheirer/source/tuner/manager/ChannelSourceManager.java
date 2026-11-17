@@ -36,12 +36,6 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class ChannelSourceManager implements ISourceEventProcessor
 {
-    /**
-     * Share of the tuner's usable half bandwidth that anchored (control and conventional) channels prefer to stay
-     * within.  The outer edge of the band has filter roll-off and aliasing that cost decode margin.
-     */
-    public static final double ANCHORED_USABLE_FRACTION = 0.85;
-
     private Logger mLogger = LoggerFactory.getLogger(ChannelSourceManager.class);
 
     private Broadcaster<SourceEvent> mSourceEventBroadcaster = new Broadcaster<>();

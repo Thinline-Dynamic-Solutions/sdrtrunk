@@ -23,7 +23,6 @@ import io.github.dsheirer.eventbus.MyEventBus;
 import io.github.dsheirer.preference.application.ApplicationPreference;
 import io.github.dsheirer.preference.calibration.VectorCalibrationPreference;
 import io.github.dsheirer.preference.decoder.JmbeLibraryPreference;
-import io.github.dsheirer.preference.decoder.TrafficChannelPreference;
 import io.github.dsheirer.preference.directory.DirectoryPreference;
 import io.github.dsheirer.preference.duplicate.CallManagementPreference;
 import io.github.dsheirer.preference.event.DecodeEventPreference;
@@ -66,7 +65,6 @@ public class UserPreferences implements Listener<PreferenceType>
     private CallManagementPreference mCallManagementPreference;
     private JmbeLibraryPreference mJmbeLibraryPreference;
     private MapPreference mMapPreference;
-    private TrafficChannelPreference mTrafficChannelPreference;
     private MP3Preference mMP3Preference;
     private PlaybackPreference mPlaybackPreference;
     private PlaylistPreference mPlaylistPreference;
@@ -128,14 +126,6 @@ public class UserPreferences implements Listener<PreferenceType>
     public JmbeLibraryPreference getJmbeLibraryPreference()
     {
         return mJmbeLibraryPreference;
-    }
-
-    /**
-     * Traffic channel allocation preferences
-     */
-    public TrafficChannelPreference getTrafficChannelPreference()
-    {
-        return mTrafficChannelPreference;
     }
 
     /**
@@ -255,7 +245,6 @@ public class UserPreferences implements Listener<PreferenceType>
         mCallManagementPreference = new CallManagementPreference(this::receive);
         mJmbeLibraryPreference = new JmbeLibraryPreference(this::receive);
         mMapPreference = new MapPreference(this::receive);
-        mTrafficChannelPreference = new TrafficChannelPreference(this::receive);
         mMP3Preference = new MP3Preference(this::receive);
         mPlaybackPreference = new PlaybackPreference(this::receive);
         mPlaylistPreference = new PlaylistPreference(this::receive, mDirectoryPreference);

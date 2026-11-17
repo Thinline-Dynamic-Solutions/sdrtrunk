@@ -39,6 +39,5 @@ public enum PreferenceType
     RECORD,
     TALKGROUP_FORMAT,
     THINLINE_RADIO,
-    TRAFFIC_CHANNEL,
     TUNER;
 }

@@ -19,6 +19,7 @@
 package io.github.dsheirer.source.tuner.manager;
 
 import io.github.dsheirer.module.decode.DecodeQuality;
+import io.github.dsheirer.preference.source.TunerPreference;
 import io.github.dsheirer.source.tuner.TunerController;
 import io.github.dsheirer.source.tuner.channel.TunerChannel;
 import io.github.dsheirer.source.tuner.ui.DiscoveredTunerModel;
@@ -32,7 +33,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Logs the decode quality of every control and conventional channel every few minutes, with its position in its
- * tuner's band.
+ * tuner's band, when enabled in the tuner preferences.
  */
 public class DecodeQualityReporter
 {
@@ -40,12 +41,19 @@ public class DecodeQualityReporter
     private static final long REPORT_INTERVAL_SECONDS = TimeUnit.MINUTES.toSeconds(5);
 
     private final DiscoveredTunerModel mDiscoveredTunerModel;
+    private final TunerPreference mTunerPreference;
     private final Map<String, DecodeQuality.Sample> mLastReport = new HashMap<>();
     private ScheduledFuture<?> mFuture;
 
-    public DecodeQualityReporter(DiscoveredTunerModel discoveredTunerModel)
+    /**
+     * Constructs an instance
+     * @param discoveredTunerModel for the tuners and their channels
+     * @param tunerPreference to enable or disable the logging
+     */
+    public DecodeQualityReporter(DiscoveredTunerModel discoveredTunerModel, TunerPreference tunerPreference)
     {
         mDiscoveredTunerModel = discoveredTunerModel;
+        mTunerPreference = tunerPreference;
     }
 
     public void start()
@@ -68,6 +76,12 @@ public class DecodeQualityReporter
 
     private void report()
     {
+        if(!mTunerPreference.isDecodeQualityLogging())
+        {
+            mLastReport.clear();
+            return;
+        }
+
         try
         {
             for(DiscoveredTuner discoveredTuner: mDiscoveredTunerModel.getAvailableTuners())

@@ -32,17 +32,14 @@ import java.util.Set;
  * as possible while every channel already on a tuner stays within that tuner's usable bandwidth.
  *
  * Tuners that can't move keep their current center and cover what they already can.  Movable tuners carrying
- * control or conventional channels are placed next, then idle tuners take whatever remains uncovered.  Anchored
- * channels and learned control frequencies must stay within the protected inner share of a tuner's bandwidth.
+ * control or conventional channels are placed next, then idle tuners take whatever remains uncovered.
  */
 public class TunerPlan
 {
     /**
      * A channel currently sourced by a tuner.
-     *
-     * @param anchored for control and conventional channels, which stay away from the band edges
      */
-    public record Channel(long frequency, int bandwidth, boolean anchored)
+    public record Channel(long frequency, int bandwidth)
     {
         long min()
         {
@@ -58,15 +55,14 @@ public class TunerPlan
     /**
      * A learned frequency, weighted by how often it carries calls.
      *
-     * @param control for a control channel, which stays away from the band edges
      * @param group for the frequencies of one multi-frequency control channel, which count only when the tuner covers
      * all of them, so the channel can rotate without changing tuners.  Null for no group.
      */
-    public record Learned(long frequency, int bandwidth, long weight, boolean control, String group)
+    public record Learned(long frequency, int bandwidth, long weight, String group)
     {
-        public Learned(long frequency, int bandwidth, long weight, boolean control)
+        public Learned(long frequency, int bandwidth, long weight)
         {
-            this(frequency, bandwidth, weight, control, null);
+            this(frequency, bandwidth, weight, null);
         }
 
         long min()
@@ -99,11 +95,8 @@ public class TunerPlan
 
     /**
      * Planned center for a tuner, with the learned weight it covers there and at its current center.
-     *
-     * @param currentProtected false when an anchored channel sits outside the protected share at the current center
      */
-    public record Placement(String id, long center, long currentCenter, long weight, long currentWeight,
-                            boolean currentProtected)
+    public record Placement(String id, long center, long currentCenter, long weight, long currentWeight)
     {
         public boolean isMove()
         {
@@ -135,9 +128,8 @@ public class TunerPlan
         for(Tuner tuner: ordered)
         {
             long currentWeight = weight(tuner, tuner.center(), learned, covered, groups);
-            boolean currentProtected = fits(tuner, tuner.center());
             long best = tuner.center();
-            long bestWeight = currentProtected ? currentWeight : -1;
+            long bestWeight = currentWeight;
 
             if(tuner.movable())
             {
@@ -159,11 +151,6 @@ public class TunerPlan
                 }
             }
 
-            if(bestWeight < 0)
-            {
-                bestWeight = currentWeight;
-            }
-
             for(Learned entry: learned)
             {
                 if(counts(tuner, best, entry, groups))
@@ -172,7 +159,7 @@ public class TunerPlan
                 }
             }
 
-            placements.add(new Placement(tuner.id(), best, tuner.center(), bestWeight, currentWeight, currentProtected));
+            placements.add(new Placement(tuner.id(), best, tuner.center(), bestWeight, currentWeight));
         }
 
         return placements;
@@ -199,22 +186,21 @@ public class TunerPlan
 
         for(Channel channel: tuner.channels())
         {
-            addCandidates(tuner, channel.min(), channel.max(), channel.anchored(), candidates);
+            addCandidates(tuner, channel.min(), channel.max(), candidates);
         }
 
         for(Learned entry: learned)
         {
-            addCandidates(tuner, entry.min(), entry.max(), entry.control(), candidates);
+            addCandidates(tuner, entry.min(), entry.max(), candidates);
         }
 
         return candidates;
     }
 
-    private static void addCandidates(Tuner tuner, long min, long max, boolean protect, Set<Long> candidates)
+    private static void addCandidates(Tuner tuner, long min, long max, Set<Long> candidates)
     {
-        long halfBandwidth = halfBandwidth(tuner, protect);
-        candidates.add(min + halfBandwidth);
-        candidates.add(max - halfBandwidth);
+        candidates.add(min + tuner.usableHalfBandwidth());
+        candidates.add(max - tuner.usableHalfBandwidth());
 
         if(tuner.middleHalfBandwidth() > 0)
         {
@@ -232,7 +218,7 @@ public class TunerPlan
 
         for(Channel channel: tuner.channels())
         {
-            if(!inWindow(tuner, center, channel.min(), channel.max(), channel.anchored()))
+            if(!inWindow(tuner, center, channel.min(), channel.max()))
             {
                 return false;
             }
@@ -244,7 +230,7 @@ public class TunerPlan
     private static boolean covers(Tuner tuner, long center, Learned entry)
     {
         return entry.min() >= tuner.minimumFrequency() && entry.max() <= tuner.maximumFrequency() &&
-            inWindow(tuner, center, entry.min(), entry.max(), entry.control());
+            inWindow(tuner, center, entry.min(), entry.max());
     }
 
     /**
@@ -274,7 +260,7 @@ public class TunerPlan
             max = Math.max(max, member.max());
         }
 
-        if(max - min > 2 * halfBandwidth(tuner, true))
+        if(max - min > 2L * tuner.usableHalfBandwidth())
         {
             return true;
         }
@@ -290,15 +276,9 @@ public class TunerPlan
         return true;
     }
 
-    private static long halfBandwidth(Tuner tuner, boolean protect)
+    private static boolean inWindow(Tuner tuner, long center, long min, long max)
     {
-        return protect ? (long)(tuner.usableHalfBandwidth() * ChannelSourceManager.ANCHORED_USABLE_FRACTION) :
-            tuner.usableHalfBandwidth();
-    }
-
-    private static boolean inWindow(Tuner tuner, long center, long min, long max, boolean protect)
-    {
-        long halfBandwidth = halfBandwidth(tuner, protect);
+        long halfBandwidth = tuner.usableHalfBandwidth();
 
         if(min < center - halfBandwidth || max > center + halfBandwidth)
         {

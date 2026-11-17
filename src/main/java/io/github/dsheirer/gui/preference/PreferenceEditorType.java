@@ -36,7 +36,6 @@ public enum PreferenceEditorType
     SOURCE_TUNERS("Tuners"),
     TALKGROUP_FORMAT("Talkgroup & Radio ID"),
     THINLINE_RADIO("Thinline Radio"),
-    TRAFFIC_CHANNELS("Traffic Channels"),
     VECTOR_CALIBRATION("Vector Calibration"),
     DEFAULT("Default");
 

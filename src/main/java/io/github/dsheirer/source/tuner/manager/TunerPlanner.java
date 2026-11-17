@@ -18,6 +18,7 @@
  */
 package io.github.dsheirer.source.tuner.manager;
 
+import io.github.dsheirer.preference.directory.DirectoryPreference;
 import io.github.dsheirer.source.tuner.TunerController;
 import io.github.dsheirer.source.tuner.channel.TunerChannel;
 import io.github.dsheirer.source.tuner.ui.DiscoveredTunerModel;
@@ -47,6 +48,7 @@ import org.slf4j.LoggerFactory;
 public class TunerPlanner
 {
     private static final Logger mLog = LoggerFactory.getLogger(TunerPlanner.class);
+    private static final String TRAFFIC_FREQUENCY_FILE = "tuner_traffic_frequencies.json";
     private static final long UPDATE_INTERVAL_SECONDS = 30;
     private static final long SAVE_INTERVAL = TimeUnit.MINUTES.toMillis(5);
     private static final long ANCHORED_MOVE_INTERVAL = TimeUnit.MINUTES.toMillis(10);
@@ -59,9 +61,15 @@ public class TunerPlanner
     private ScheduledFuture<?> mUpdateFuture;
     private long mLastSave = System.currentTimeMillis();
 
-    public TunerPlanner(DiscoveredTunerModel discoveredTunerModel, Path logPath)
+    /**
+     * Constructs an instance
+     * @param discoveredTunerModel for the tuners and their channels
+     * @param directoryPreference for the location of the learned traffic frequency file
+     */
+    public TunerPlanner(DiscoveredTunerModel discoveredTunerModel, DirectoryPreference directoryPreference)
     {
         mDiscoveredTunerModel = discoveredTunerModel;
+        Path logPath = directoryPreference.getDirectoryConfiguration().resolve(TRAFFIC_FREQUENCY_FILE);
         mTrafficFrequencyLog = new TrafficFrequencyLog(logPath);
     }
 
@@ -112,7 +120,7 @@ public class TunerPlanner
         {
             if(!active.contains(control.frequency))
             {
-                learned.add(new TunerPlan.Learned(control.frequency, control.bandwidth, weight, true, control.owner));
+                learned.add(new TunerPlan.Learned(control.frequency, control.bandwidth, weight, control.owner));
             }
         }
     }
@@ -142,8 +150,7 @@ public class TunerPlanner
 
             for(TrafficFrequencyLog.Entry control: controls.values())
             {
-                learned.add(new TunerPlan.Learned(control.frequency, control.bandwidth, controlWeight, true,
-                    control.owner));
+                learned.add(new TunerPlan.Learned(control.frequency, control.bandwidth, controlWeight, control.owner));
             }
 
             Map<String, DiscoveredTuner> tunersById = new HashMap<>();
@@ -242,8 +249,7 @@ public class TunerPlanner
 
                 for(TunerChannel tunerChannel: tunerChannels)
                 {
-                    channels.add(new TunerPlan.Channel(tunerChannel.getFrequency(), tunerChannel.getBandwidth(),
-                        tunerChannel.isAnchored()));
+                    channels.add(new TunerPlan.Channel(tunerChannel.getFrequency(), tunerChannel.getBandwidth()));
                     movable &= tunerChannel.isAnchored();
                 }
 
@@ -256,9 +262,7 @@ public class TunerPlanner
 
             for(TunerPlan.Placement placement: TunerPlan.plan(tuners, learned))
             {
-                boolean offEdge = !placement.currentProtected();
-
-                if(!placement.isMove() || (!offEdge && placement.weight() <= placement.currentWeight()))
+                if(!placement.isMove() || placement.weight() <= placement.currentWeight())
                 {
                     continue;
                 }
@@ -278,8 +282,8 @@ public class TunerPlanner
 
                     long gain = placement.weight() - placement.currentWeight();
 
-                    if(!offEdge && (placement.weight() < placement.currentWeight() * ANCHORED_MOVE_GAIN ||
-                        gain < totalWeight * ANCHORED_MOVE_MINIMUM_SHARE))
+                    if(placement.weight() < placement.currentWeight() * ANCHORED_MOVE_GAIN ||
+                        gain < totalWeight * ANCHORED_MOVE_MINIMUM_SHARE)
                     {
                         continue;
                     }
@@ -293,8 +297,7 @@ public class TunerPlanner
                     }
 
                     mLog.info("Tuner plan: moved [" + discoveredTuner.getTuner().getPreferredName() + "]" +
-                        (anchored ? " carrying a control channel" : "") +
-                        (offEdge && anchored ? " off the band edge" : "") + " from " + placement.currentCenter() +
+                        (anchored ? " carrying a control channel" : "") + " from " + placement.currentCenter() +
                         " to " + placement.center() + " - covers " + placement.weight() + " of " + totalWeight +
                         " learned calls (was " + placement.currentWeight() + "), " + learned.size() +
                         " frequencies known");

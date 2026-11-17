@@ -40,18 +40,18 @@ public class TunerPlanTest
     private static TunerPlan.Tuner tuner(String id, long center, int middle, boolean movable, long... channels)
     {
         List<TunerPlan.Channel> list = java.util.Arrays.stream(channels)
-            .mapToObj(frequency -> new TunerPlan.Channel(frequency, BANDWIDTH, movable)).toList();
+            .mapToObj(frequency -> new TunerPlan.Channel(frequency, BANDWIDTH)).toList();
         return new TunerPlan.Tuner(id, center, HALF, middle, MIN, MAX, list, movable);
     }
 
     private static TunerPlan.Learned learned(long frequency, long weight)
     {
-        return new TunerPlan.Learned(frequency, BANDWIDTH, weight, false);
+        return new TunerPlan.Learned(frequency, BANDWIDTH, weight);
     }
 
     private static TunerPlan.Learned control(long frequency, long weight)
     {
-        return new TunerPlan.Learned(frequency, BANDWIDTH, weight, true);
+        return new TunerPlan.Learned(frequency, BANDWIDTH, weight);
     }
 
     private static TunerPlan.Placement placement(List<TunerPlan.Placement> placements, String id)
@@ -62,11 +62,6 @@ public class TunerPlanTest
     private static boolean inWindow(long center, long frequency, int middle)
     {
         return inWindow(center, frequency, middle, HALF);
-    }
-
-    private static boolean inProtectedWindow(long center, long frequency, int middle)
-    {
-        return inWindow(center, frequency, middle, (long)(HALF * ChannelSourceManager.ANCHORED_USABLE_FRACTION));
     }
 
     private static boolean inWindow(long center, long frequency, int middle, long half)
@@ -88,7 +83,7 @@ public class TunerPlanTest
             learned), "a");
 
         assertTrue(placement.isMove());
-        assertTrue(inProtectedWindow(placement.center(), control, 0));
+        assertTrue(inWindow(placement.center(), control, 0));
         assertTrue(inWindow(placement.center(), 772_600_000, 0));
         assertTrue(inWindow(placement.center(), 772_650_000, 0));
         assertEquals(80, placement.weight());
@@ -149,7 +144,7 @@ public class TunerPlanTest
         TunerPlan.Placement placement = placement(TunerPlan.plan(List.of(tuner("a", 770_500_000, middle, true,
             control)), learned), "a");
 
-        assertTrue(inProtectedWindow(placement.center(), control, middle));
+        assertTrue(inWindow(placement.center(), control, middle));
         assertTrue(inWindow(placement.center(), 771_400_000, middle));
         assertTrue(inWindow(placement.center(), 771_800_000, middle));
         assertEquals(40, placement.weight());
@@ -209,21 +204,7 @@ public class TunerPlanTest
     }
 
     @Test
-    void controlChannelAtTheBandEdgeMovesInward()
-    {
-        long control = 774_581_250;
-        long center = control - HALF + BANDWIDTH;
-
-        TunerPlan.Placement placement = placement(TunerPlan.plan(List.of(tuner("a", center, 0, true, control)),
-            List.of()), "a");
-
-        assertFalse(placement.currentProtected());
-        assertTrue(placement.isMove());
-        assertTrue(inProtectedWindow(placement.center(), control, 0));
-    }
-
-    @Test
-    void startupSpreadsControlChannelsTooWideForOneProtectedWindow()
+    void startupPlacesControlChannelsSpreadAcrossTheBand()
     {
         long controlWeight = 1_000;
         long[] controls = {772_593_750, 773_831_250, 774_581_250};
@@ -237,7 +218,7 @@ public class TunerPlanTest
 
         for(long frequency: controls)
         {
-            assertTrue(placements.stream().anyMatch(placement -> inProtectedWindow(placement.center(), frequency, 0)));
+            assertTrue(placements.stream().anyMatch(placement -> inWindow(placement.center(), frequency, 0)));
         }
     }
 
@@ -251,8 +232,8 @@ public class TunerPlanTest
         TunerPlan.Placement placement = placement(TunerPlan.plan(List.of(tuner("a", 100_000_000, 0, true)), learned),
             "a");
 
-        assertTrue(inProtectedWindow(placement.center(), 774_581_250, 0));
-        assertTrue(inProtectedWindow(placement.center(), 774_081_250, 0));
+        assertTrue(inWindow(placement.center(), 774_581_250, 0));
+        assertTrue(inWindow(placement.center(), 774_081_250, 0));
     }
 
     @Test
@@ -275,17 +256,17 @@ public class TunerPlanTest
         long control = 100_000;
         long alternate = 10;
         List<TunerPlan.Learned> learned = List.of(
-            new TunerPlan.Learned(772_593_750, BANDWIDTH, control, true, "marshaville"),
-            new TunerPlan.Learned(771_831_250, BANDWIDTH, control, true, "parma"),
-            new TunerPlan.Learned(771_193_750, BANDWIDTH, alternate, true, "parma"),
-            new TunerPlan.Learned(771_506_250, BANDWIDTH, alternate, true, "parma"),
-            new TunerPlan.Learned(774_081_250, BANDWIDTH, control, true, "medina"),
-            new TunerPlan.Learned(774_581_250, BANDWIDTH, alternate, true, "medina"),
-            new TunerPlan.Learned(773_831_250, BANDWIDTH, control, true, "cuyahoga"),
-            new TunerPlan.Learned(774_281_250, BANDWIDTH, alternate, true, "cuyahoga"),
-            new TunerPlan.Learned(774_531_250, BANDWIDTH, alternate, true, "cuyahoga"),
-            new TunerPlan.Learned(774_781_250, BANDWIDTH, alternate, true, "cuyahoga"),
-            new TunerPlan.Learned(855_962_500, BANDWIDTH, control, true, "gcrcn"));
+            new TunerPlan.Learned(772_593_750, BANDWIDTH, control, "marshaville"),
+            new TunerPlan.Learned(771_831_250, BANDWIDTH, control, "parma"),
+            new TunerPlan.Learned(771_193_750, BANDWIDTH, alternate, "parma"),
+            new TunerPlan.Learned(771_506_250, BANDWIDTH, alternate, "parma"),
+            new TunerPlan.Learned(774_081_250, BANDWIDTH, control, "medina"),
+            new TunerPlan.Learned(774_581_250, BANDWIDTH, alternate, "medina"),
+            new TunerPlan.Learned(773_831_250, BANDWIDTH, control, "cuyahoga"),
+            new TunerPlan.Learned(774_281_250, BANDWIDTH, alternate, "cuyahoga"),
+            new TunerPlan.Learned(774_531_250, BANDWIDTH, alternate, "cuyahoga"),
+            new TunerPlan.Learned(774_781_250, BANDWIDTH, alternate, "cuyahoga"),
+            new TunerPlan.Learned(855_962_500, BANDWIDTH, control, "gcrcn"));
 
         List<TunerPlan.Placement> placements = TunerPlan.plan(List.of(tuner("a", 100_000_000, 0, true),
             tuner("b", 100_000_000, 0, true), tuner("c", 100_000_000, 0, true), tuner("d", 100_000_000, 0, true)),
@@ -298,7 +279,7 @@ public class TunerPlanTest
             List<Long> frequencies = learned.stream().filter(entry -> group.equals(entry.group()))
                 .map(TunerPlan.Learned::frequency).toList();
             assertTrue(placements.stream().anyMatch(placement -> frequencies.stream()
-                .allMatch(frequency -> inProtectedWindow(placement.center(), frequency, 0))), group);
+                .allMatch(frequency -> inWindow(placement.center(), frequency, 0))), group);
         }
     }
 }

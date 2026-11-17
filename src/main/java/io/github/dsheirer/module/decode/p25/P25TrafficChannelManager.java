@@ -68,7 +68,6 @@ import io.github.dsheirer.module.decode.p25.reference.DataServiceOptions;
 import io.github.dsheirer.module.decode.p25.reference.ServiceOptions;
 import io.github.dsheirer.module.decode.p25.reference.VoiceServiceOptions;
 import io.github.dsheirer.module.decode.traffic.TrafficChannelManager;
-import io.github.dsheirer.preference.decoder.TrafficChannelPreference;
 import io.github.dsheirer.sample.Listener;
 import io.github.dsheirer.source.config.SourceConfigTuner;
 import java.util.ArrayList;
@@ -131,8 +130,8 @@ public class P25TrafficChannelManager extends TrafficChannelManager implements I
     private Listener<IMessage> mMessageListener;
     private boolean mIgnoreDataCalls;
     private AliasList mAliasList;
-    private TrafficChannelPreference mTrafficChannelPreference;
     private boolean mIgnoreEncryptedCalls;
+    private boolean mIgnoreUnaliasedTalkgroups;
     //Used only for data calls
     private final DecodeEventDuplicateDetector mDuplicateDetector = new DecodeEventDuplicateDetector();
     private final TalkerAliasManager mTalkerAliasManager = new TalkerAliasManager();
@@ -149,6 +148,7 @@ public class P25TrafficChannelManager extends TrafficChannelManager implements I
         {
             mIgnoreDataCalls = phase1.getIgnoreDataCalls();
             mIgnoreEncryptedCalls = phase1.getIgnoreEncryptedCalls();
+            mIgnoreUnaliasedTalkgroups = phase1.getIgnoreUnaliasedTalkgroups();
             createPhase1TrafficChannels(phase1.getTrafficChannelPoolSize(), phase1);
             DecodeConfigP25Phase2 phase2 = new DecodeConfigP25Phase2();
             DecoderFactory.transferJMBESettings(phase1, phase2);
@@ -158,6 +158,7 @@ public class P25TrafficChannelManager extends TrafficChannelManager implements I
         {
             mIgnoreDataCalls = phase2.getIgnoreDataCalls();
             mIgnoreEncryptedCalls = phase2.getIgnoreEncryptedCalls();
+            mIgnoreUnaliasedTalkgroups = phase2.getIgnoreUnaliasedTalkgroups();
             DecodeConfigP25Phase1 phase1 = new DecodeConfigP25Phase1();
             DecoderFactory.transferJMBESettings(phase2, phase1);
             createPhase1TrafficChannels(phase2.getTrafficChannelPoolSize(), phase1);
@@ -1274,19 +1275,17 @@ public class P25TrafficChannelManager extends TrafficChannelManager implements I
     }
 
     /**
-     * Sets the control channel's alias list and the preference that decides whether talkgroups without an alias in
-     * that list are tuned.
+     * Sets the control channel's alias list, used to identify unaliased talkgroups when the channel is configured to
+     * ignore them.
      */
-    public void setTalkgroupFilter(AliasList aliasList, TrafficChannelPreference trafficChannelPreference)
+    public void setAliasList(AliasList aliasList)
     {
         mAliasList = aliasList;
-        mTrafficChannelPreference = trafficChannelPreference;
     }
 
     private boolean isUnaliasedTalkgroup(IdentifierCollection ic)
     {
-        if(mAliasList == null || mTrafficChannelPreference == null ||
-            !mTrafficChannelPreference.isIgnoreUnaliasedTalkgroups())
+        if(!mIgnoreUnaliasedTalkgroups || mAliasList == null)
         {
             return false;
         }
